@@ -5,7 +5,7 @@ import 'package:railway_tracker/models/route_model.dart';
 void main() {
   group('TrainModel Tests', () {
     test('Correctly serializes to Map and deserializes from Map', () {
-      final train = TrainModel(
+      const train = TrainModel(
         id: 'train_1001',
         trainNumber: '1001',
         name: 'Galu Kumari',
@@ -59,7 +59,7 @@ void main() {
 
   group('RouteModel Tests', () {
     test('Validates station checkpoints and valid journey directions', () {
-      final route = RouteModel(
+      const route = RouteModel(
         id: 'route_coastal',
         routeName: 'Coastal Line',
         originStation: 'Colombo Fort',
