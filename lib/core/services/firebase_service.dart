@@ -1,9 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 /// Centralized singleton service providing access to Firebase instances.
-/// Used across all team member features (Auth, Firestore, Realtime DB).
+/// Used across all team member features (Auth, Firestore, Realtime DB, Messaging).
 class FirebaseService {
   FirebaseService._internal();
   static final FirebaseService _instance = FirebaseService._internal();
@@ -19,6 +20,9 @@ class FirebaseService {
 
   /// Firebase Realtime Database instance (live telemetry, real-time GPS coordinates)
   FirebaseDatabase get realtimeDb => FirebaseDatabase.instance;
+
+  /// Firebase Cloud Messaging instance (push notifications, alerts)
+  FirebaseMessaging get messaging => FirebaseMessaging.instance;
 
   // ---------------------------------------------------------------------------
   // Commonly Used Firestore Collections
