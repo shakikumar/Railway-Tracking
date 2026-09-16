@@ -6,7 +6,6 @@ import '../../screens/journey_planner/journey_planner_screen.dart';
 import '../../screens/search_results/search_results_screen.dart';
 import '../../screens/train_details/train_details_screen.dart';
 import '../../screens/live_tracking/live_tracking_screen.dart';
-import '../../screens/auth/auth_screen.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/notifications/notifications_screen.dart';
 import '../../screens/profile/profile_screen.dart';
@@ -28,7 +27,6 @@ class AppRoutes {
   static const String searchResults = '/search-results';
   static const String trainDetails = '/train-details';
   static const String liveTracking = '/live-tracking';
-  static const String auth = '/auth';
   static const String login = '/login';
   static const String notifications = '/notifications';
   static const String profile = '/profile';
@@ -70,11 +68,6 @@ class AppRoutes {
         path: liveTracking,
         name: 'liveTracking',
         builder: (context, state) => const LiveTrackingScreen(),
-      ),
-      GoRoute(
-        path: auth,
-        name: 'auth',
-        builder: (context, state) => const AuthScreen(),
       ),
       GoRoute(
         path: login,
