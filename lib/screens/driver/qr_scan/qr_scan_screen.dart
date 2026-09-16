@@ -1,6 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'qr_payload_validator.dart';
 
 /// Screen for Driver QR Code scanning (Member 5).
 /// Scans IoT pairing tags affixed to locomotive cabs to extract unit configuration
@@ -50,31 +50,17 @@ class _QrScanScreenState extends State<QrScanScreen> {
     _processPayload(rawValue.trim());
   }
 
-  /// Parses and validates the QR string as JSON matching {unit_id, mac, hw_type}
+  /// Parses and validates the QR string using standalone validator and updates UI or navigates
   void _processPayload(String rawJson) {
     try {
-      final decoded = jsonDecode(rawJson);
-      if (decoded is! Map<String, dynamic>) {
-        _showScanError('Malformed QR: Payload must be a valid JSON object.');
-        return;
-      }
-
-      final unitId = decoded['unit_id']?.toString().trim();
-      final mac = decoded['mac']?.toString().trim();
-      final hwType = decoded['hw_type']?.toString().trim();
-
-      // Validate all 3 fields are present and non-empty
-      if (unitId == null || unitId.isEmpty ||
-          mac == null || mac.isEmpty ||
-          hwType == null || hwType.isEmpty) {
-        _showScanError(
-          'Incomplete QR: Required fields (unit_id, mac, hw_type) are missing or empty.',
-        );
-        return;
-      }
-
-      // Valid QR payload: forward to Trip Setup screen
-      _navigateToTripSetup(unitId: unitId, mac: mac, hwType: hwType);
+      final payload = parseAndValidateQrPayload(rawJson);
+      _navigateToTripSetup(
+        unitId: payload.unitId,
+        mac: payload.mac,
+        hwType: payload.hwType,
+      );
+    } on FormatException catch (e) {
+      _showScanError(e.message);
     } catch (e) {
       _showScanError('Invalid QR Code: Content is not valid JSON ($e).');
     }
