@@ -72,6 +72,14 @@ class RouteModel {
     );
   }
 
+  /// Create a [RouteModel] from Firebase Realtime Database map
+  factory RouteModel.fromRealtimeDb(Map<dynamic, dynamic> map, {String? id}) {
+    final converted = map.map(
+      (key, value) => MapEntry(key.toString(), value),
+    );
+    return RouteModel.fromMap(converted, id: id);
+  }
+
   /// Convert to standard Map for Firestore
   Map<String, dynamic> toMap() {
     return {

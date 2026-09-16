@@ -81,5 +81,21 @@ void main() {
       expect(route.isValidJourney('Colombo Fort', 'Galle'), isTrue);
       expect(route.isValidJourney('Galle', 'Colombo Fort'), isFalse); // Reverse direction
     });
+
+    test('Correctly deserializes RouteModel from Firebase Realtime Database map', () {
+      final rtdbMap = {
+        'id': 'route_main_01',
+        'routeName': 'Main Line',
+        'originStation': 'Colombo Fort',
+        'destinationStation': 'Badulla',
+        'stationCheckpoints': ['Colombo Fort', 'Peradeniya', 'Nanu Oya', 'Badulla'],
+      };
+
+      final route = RouteModel.fromRealtimeDb(rtdbMap);
+      expect(route.id, 'route_main_01');
+      expect(route.routeName, 'Main Line');
+      expect(route.totalStops, 4);
+      expect(route.containsStation('Peradeniya'), isTrue);
+    });
   });
 }
