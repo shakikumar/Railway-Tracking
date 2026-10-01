@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.13.3
+  sdk: ^3.5.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -35,6 +35,32 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  # Routing & Deep Linking
+  go_router: ^14.8.1
+
+  # Core Firebase & Authentication
+  firebase_core: ^3.12.1
+  firebase_auth: ^5.5.1
+
+  # Cloud Firestore (Database for routes, train schedules, user favorites - Members 2, 4, 5)
+  cloud_firestore: ^5.6.5
+
+  # Realtime Database (Live tracking coordinates, delay telemetry - Members 2, 3, 4)
+  firebase_database: ^11.3.1
+
+  # Push Notifications (Delay alerts, station alerts - Member 4)
+  firebase_messaging: ^15.2.4
+
+  # State Management (Journey, live tracking, auth status)
+  provider: ^6.1.2
+
+  # Maps & Navigation (Live train map tracking - Member 3)
+  google_maps_flutter: ^2.10.1
+
+  # QR Code Scanner (Driver trip start & onboarding - Member 5)
+  mobile_scanner: ^6.0.4
+  flutter_blue_plus: ^2.3.12
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -44,7 +70,7 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^6.0.0
+  flutter_lints: ^4.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

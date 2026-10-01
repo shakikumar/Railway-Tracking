@@ -1,5 +1,5 @@
 flutter/ephemeral/
-
+android/app/google-services.json
 # Visual Studio user-specific files.
 *.suo
 *.user
