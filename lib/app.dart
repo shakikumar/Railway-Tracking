@@ -5,6 +5,7 @@ import 'core/theme/app_theme.dart';
 import 'providers/journey_provider.dart';
 import 'providers/live_tracking_provider.dart';
 import 'providers/driver_trip_provider.dart';
+import 'providers/station_dashboard_provider.dart';
 
 class RailwayTrackerApp extends StatelessWidget {
   const RailwayTrackerApp({super.key});
@@ -16,6 +17,7 @@ class RailwayTrackerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => JourneyProvider()),
         ChangeNotifierProvider(create: (_) => LiveTrackingProvider()),
         ChangeNotifierProvider(create: (_) => DriverTripProvider()),
+        ChangeNotifierProvider(create: (_) => StationDashboardProvider()),
       ],
       child: MaterialApp.router(
         title: 'Railway Tracker',
