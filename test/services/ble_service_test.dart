@@ -22,11 +22,71 @@ void main() {
       expect(deserialized.hwType, 'ESP32_BLE_V1');
     });
 
-    test('handles missing or null map keys gracefully', () {
-      final payload = UnitQrPayload.fromMap(const {});
-      expect(payload.unitId, '');
-      expect(payload.mac, '');
-      expect(payload.hwType, '');
+    test(
+        'throws FormatException for missing, null, empty, or non-string fields',
+        () {
+      // Missing unit_id
+      expect(
+        () => UnitQrPayload.fromMap({
+          'mac': 'AA:BB:CC:DD:EE:FF',
+          'hw_type': 'ESP32_BLE_V1',
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            contains('unit_id'),
+          ),
+        ),
+      );
+
+      // Null mac
+      expect(
+        () => UnitQrPayload.fromMap({
+          'unit_id': 'SLR-LOCO-1001',
+          'mac': null,
+          'hw_type': 'ESP32_BLE_V1',
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            contains('mac'),
+          ),
+        ),
+      );
+
+      // Empty hw_type after trim
+      expect(
+        () => UnitQrPayload.fromMap({
+          'unit_id': 'SLR-LOCO-1001',
+          'mac': 'AA:BB:CC:DD:EE:FF',
+          'hw_type': '   ',
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            contains('hw_type'),
+          ),
+        ),
+      );
+
+      // Non-string unit_id
+      expect(
+        () => UnitQrPayload.fromMap({
+          'unit_id': 12345,
+          'mac': 'AA:BB:CC:DD:EE:FF',
+          'hw_type': 'ESP32_BLE_V1',
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            contains('unit_id'),
+          ),
+        ),
+      );
     });
   });
 

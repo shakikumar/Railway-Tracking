@@ -21,11 +21,23 @@ class UnitQrPayload {
   });
 
   /// Deserializes a [UnitQrPayload] from a JSON-compatible map.
+  ///
+  /// Throws a [FormatException] naming the bad field if `unit_id`, `mac`, or
+  /// `hw_type` is missing, null, not a [String], or empty after trimming.
+  /// Callers (e.g. QR scan screen) must catch [FormatException] and show the error.
   factory UnitQrPayload.fromMap(Map<String, dynamic> map) {
+    String extractField(String key) {
+      final value = map[key];
+      if (value is! String || value.trim().isEmpty) {
+        throw FormatException('Invalid or missing field: $key');
+      }
+      return value.trim();
+    }
+
     return UnitQrPayload(
-      unitId: map['unit_id'] as String? ?? '',
-      mac: map['mac'] as String? ?? '',
-      hwType: map['hw_type'] as String? ?? '',
+      unitId: extractField('unit_id'),
+      mac: extractField('mac'),
+      hwType: extractField('hw_type'),
     );
   }
 
