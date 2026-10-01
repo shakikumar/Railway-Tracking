@@ -1,88 +1,299 @@
 import 'dart:async';
 
-/// Bluetooth Low Energy (BLE) Service interface and GATT Specification (Member 5).
-/// Used by the Driver Flow to pair with the locomotive's onboard hardware beacon
-/// and write trip metadata (train number, route, direction, driver ID).
-class BleService {
-  BleService._internal();
-  static final BleService _instance = BleService._internal();
+/// Typed QR code payload containing locomotive beacon hardware parameters (Member 5).
+///
+/// Encapsulates the visual code fields scanned by the driver during train onboarding.
+class UnitQrPayload {
+  /// Unique locomotive/beacon unit identifier (e.g. "SLR-LOCO-1001").
+  final String unitId;
 
-  /// Singleton instance
-  static BleService get instance => _instance;
+  /// Hardware MAC address of the BLE peripheral beacon.
+  final String mac;
 
-  // ---------------------------------------------------------------------------
-  // TRAIN_PAIRING_SERVICE GATT Specification UUIDs
-  // ---------------------------------------------------------------------------
-  static const String trainPairingServiceUuid =
-      '0000ffe0-0000-1000-8000-00805f9b34fb';
-  static const String tripConfigCharacteristicUuid =
-      '0000ffe1-0000-1000-8000-00805f9b34fb';
-  static const String beaconTelemetryCharacteristicUuid =
+  /// Hardware revision or beacon category (e.g. "ESP32_BLE_V1").
+  final String hwType;
+
+  /// Creates a [UnitQrPayload] data model.
+  const UnitQrPayload({
+    required this.unitId,
+    required this.mac,
+    required this.hwType,
+  });
+
+  /// Deserializes a [UnitQrPayload] from a JSON-compatible map.
+  factory UnitQrPayload.fromMap(Map<String, dynamic> map) {
+    return UnitQrPayload(
+      unitId: map['unit_id'] as String? ?? '',
+      mac: map['mac'] as String? ?? '',
+      hwType: map['hw_type'] as String? ?? '',
+    );
+  }
+
+  /// Serializes this payload to a JSON-compatible map.
+  Map<String, dynamic> toMap() {
+    return {
+      'unit_id': unitId,
+      'mac': mac,
+      'hw_type': hwType,
+    };
+  }
+}
+
+/// GATT UUID definitions for the Driver-Train Pairing flow.
+///
+/// TODO: Placeholder UUIDs — replace with hardware GATT spec in hardware phase.
+abstract class TrainPairingUuids {
+  TrainPairingUuids._();
+
+  /// Primary GATT service UUID for locomotive onboarding & driver pairing.
+  static const String serviceUuid = '0000ffe0-0000-1000-8000-00805f9b34fb';
+
+  /// Characteristic for reading unit information to verify hardware identity.
+  static const String unitInfoCharUuid = '0000ffe1-0000-1000-8000-00805f9b34fb';
+
+  /// Characteristic for writing trip parameters (train number, route, direction).
+  static const String tripConfigCharUuid =
       '0000ffe2-0000-1000-8000-00805f9b34fb';
 
-  /// Toggle for simulated BLE mode so UI and state testing does not require
-  /// physical locomotive BLE hardware. Default is [true].
-  bool isMockMode = true;
+  /// Characteristic for subscribing to live trip lifecycle status updates.
+  static const String tripStatusCharUuid =
+      '0000ffe3-0000-1000-8000-00805f9b34fb';
+}
 
-  String? _connectedDeviceId;
-  bool get isConnected => _connectedDeviceId != null;
-  String? get connectedDeviceId => _connectedDeviceId;
+/// GATT UUID definitions for Station Master hardware configuration.
+///
+/// TODO: Placeholder UUIDs — replace with hardware GATT spec in hardware phase.
+abstract class StationConfigUuids {
+  StationConfigUuids._();
 
-  /// Scans for nearby locomotive BLE pairing beacons matching [trainPairingServiceUuid].
-  /// Returns a list of discovered device identifiers/names.
+  /// Primary GATT service UUID for station master terminal configuration.
+  static const String serviceUuid = '0000fff0-0000-1000-8000-00805f9b34fb';
+
+  /// Characteristic for setting the station identifier during one-time setup.
+  static const String stationIdCharUuid =
+      '0000fff1-0000-1000-8000-00805f9b34fb';
+}
+
+/// BLE contract for the Driver-Train pairing lifecycle (every locomotive power-on).
+abstract class TrainPairingBle {
+  /// Connects to a locomotive BLE unit using scanned [payload], mocking verification
+  /// of the hardware identity via UNIT_INFO_CHAR.
+  Future<bool> connectToUnit(UnitQrPayload payload);
+
+  /// Writes trip metadata to the onboard locomotive characteristic.
   ///
-  /// In [isMockMode], returns a simulated hardware beacon list after a short delay.
-  /// TODO (Member 5): Implement flutter_blue_plus scanning logic:
-  /// `FlutterBluePlus.startScan(withServices: [Guid(trainPairingServiceUuid)])`
+  /// Persists in RAM only on the stub.
+  Future<bool> writeTripConfig(Map<String, dynamic> config);
+
+  /// Reads the current trip status from TRIP_STATUS_CHAR.
+  Future<String> readTripStatus();
+
+  /// Subscribes to live trip configuration status notifications.
+  Stream<String> watchTripStatus();
+
+  /// Disconnects from the current locomotive pairing unit.
+  Future<void> disconnect();
+}
+
+/// BLE contract for Station Master terminal configuration (one-time setup).
+abstract class StationConfigBle {
+  /// Connects to the station master beacon unit by [mac] address.
+  Future<bool> connectToStationUnit(String mac);
+
+  /// Writes the station identifier to the station unit characteristic.
+  Future<bool> writeStationId(String stationId);
+
+  /// Disconnects from the station beacon unit.
+  Future<void> disconnect();
+}
+
+/// Unified BLE service interface combining driver and station flows while
+/// maintaining structural separation.
+abstract class BleService implements TrainPairingBle, StationConfigBle {
+  /// Default shared instance for backward compatibility with existing callers.
+  static BleService instance = MockBleService();
+}
+
+/// Simulated in-memory implementation of [BleService] for UI and testing.
+///
+/// Does not call native Bluetooth hardware or platform channels. All state is
+/// stored strictly in RAM.
+class MockBleService implements BleService {
+  /// Simulated latency for asynchronous BLE operations.
+  final Duration latency;
+
+  /// Whether simulated operations should fail to verify screen error paths.
+  final bool simulateFailure;
+
+  UnitQrPayload? _connectedUnit;
+  String? _connectedStationMac;
+  Map<String, dynamic>? _lastTripConfig;
+  String _tripStatus = 'unconfigured';
+  String? _configuredStationId;
+
+  final StreamController<String> _tripStatusController =
+      StreamController<String>.broadcast();
+
+  /// Creates a [MockBleService] with optional [latency] and [simulateFailure].
+  MockBleService({
+    this.latency = const Duration(milliseconds: 500),
+    this.simulateFailure = false,
+  });
+
+  /// Currently connected locomotive unit payload, if any.
+  UnitQrPayload? get connectedUnit => _connectedUnit;
+
+  /// Currently connected station beacon MAC, if any.
+  String? get connectedStationMac => _connectedStationMac;
+
+  /// Last trip configuration written to RAM.
+  Map<String, dynamic>? get lastTripConfig => _lastTripConfig;
+
+  /// Last station identifier configured.
+  String? get configuredStationId => _configuredStationId;
+
+  // ---------------------------------------------------------------------------
+  // TrainPairingBle Implementation (Driver Flow)
+  // ---------------------------------------------------------------------------
+
+  @override
+  Future<bool> connectToUnit(UnitQrPayload payload) async {
+    if (latency > Duration.zero) {
+      await Future.delayed(latency);
+    }
+    if (simulateFailure) {
+      return false;
+    }
+    _connectedUnit = payload;
+    return true;
+  }
+
+  @override
+  Future<bool> writeTripConfig(Map<String, dynamic> config) async {
+    if (latency > Duration.zero) {
+      await Future.delayed(latency);
+    }
+    if (simulateFailure) {
+      if (!_tripStatusController.isClosed) {
+        _tripStatusController.addError('Simulated writeTripConfig failure');
+      }
+      return false;
+    }
+    _lastTripConfig = Map<String, dynamic>.from(config);
+    _tripStatus = 'configured';
+    if (!_tripStatusController.isClosed) {
+      _tripStatusController.add('configured');
+    }
+    return true;
+  }
+
+  @override
+  Future<String> readTripStatus() async {
+    if (latency > Duration.zero) {
+      await Future.delayed(latency);
+    }
+    if (simulateFailure) {
+      return 'error';
+    }
+    return _tripStatus;
+  }
+
+  @override
+  Stream<String> watchTripStatus() {
+    return _tripStatusController.stream;
+  }
+
+  // ---------------------------------------------------------------------------
+  // StationConfigBle Implementation (Station Master Flow)
+  // ---------------------------------------------------------------------------
+
+  @override
+  Future<bool> connectToStationUnit(String mac) async {
+    if (latency > Duration.zero) {
+      await Future.delayed(latency);
+    }
+    if (simulateFailure) {
+      return false;
+    }
+    _connectedStationMac = mac;
+    return true;
+  }
+
+  @override
+  Future<bool> writeStationId(String stationId) async {
+    if (latency > Duration.zero) {
+      await Future.delayed(latency);
+    }
+    if (simulateFailure) {
+      return false;
+    }
+    _configuredStationId = stationId;
+    return true;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Disconnect & Lifecycle
+  // ---------------------------------------------------------------------------
+
+  @override
+  Future<void> disconnect() async {
+    if (latency > Duration.zero) {
+      await Future.delayed(latency);
+    }
+    _connectedUnit = null;
+    _connectedStationMac = null;
+    _lastTripConfig = null;
+    _tripStatus = 'unconfigured';
+    _configuredStationId = null;
+  }
+
+  /// Closes the broadcast stream controller.
+  void dispose() {
+    _tripStatusController.close();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Backward-compatibility wrappers for legacy callers
+  // ---------------------------------------------------------------------------
+
+  /// Legacy device connection stub.
+  /// TODO: remove once screens migrate to new API
+  @Deprecated('Use connectToUnit instead')
+  Future<bool> connectToDevice(String deviceId) async {
+    return connectToUnit(UnitQrPayload(unitId: deviceId, mac: '', hwType: ''));
+  }
+
+  /// Legacy beacon scan stub.
+  /// TODO: remove once screens migrate to new API
+  @Deprecated('Legacy scan method - driver flow uses QR scan')
   Future<List<String>> scanForDevice({
     Duration timeout = const Duration(seconds: 4),
   }) async {
-    if (isMockMode) {
-      await Future.delayed(const Duration(milliseconds: 600));
-      return const [
-        'SLR-BEACON-1001-COASTAL',
-        'SLR-BEACON-1002-MAINLINE',
-        'SLR-CAB-SIMULATOR',
-      ];
+    if (latency > Duration.zero) {
+      await Future.delayed(latency);
     }
-
-    // TODO (Member 5): Production flutter_blue_plus scan implementation
-    return [];
-  }
-
-  /// Connects to a specific BLE device by [deviceId].
-  ///
-  /// In [isMockMode], simulates a successful connection handshake.
-  /// TODO (Member 5): Implement `BluetoothDevice.connect()` and MTU negotiation.
-  Future<bool> connectToDevice(String deviceId) async {
-    if (isMockMode) {
-      await Future.delayed(const Duration(milliseconds: 400));
-      _connectedDeviceId = deviceId;
-      return true;
+    if (simulateFailure) {
+      return const [];
     }
-
-    // TODO (Member 5): Production BLE connection
-    return false;
+    return const [
+      'SLR-BEACON-1001-COASTAL',
+      'SLR-BEACON-1002-MAINLINE',
+      'SLR-CAB-SIMULATOR',
+    ];
   }
 
-  /// Writes trip configuration to the onboard locomotive characteristic.
-  /// [config] format: `{ 'train_no': '...', 'route_id': '...', 'direction': '...', 'driver_id': '...' }`
-  ///
-  /// In [isMockMode], returns `true` (success) immediately.
-  /// TODO (Member 5): Encode payload to UTF-8 bytes and call
-  /// `characteristic.write(bytes, withoutResponse: false)`.
-  Future<bool> writeTripConfig(Map<String, dynamic> config) async {
-    if (isMockMode) {
-      await Future.delayed(const Duration(milliseconds: 300));
-      return true; // Mocked success so UI flow proceeds seamlessly
-    }
+  /// Legacy mock mode toggle.
+  /// TODO: remove once screens migrate to new API
+  @Deprecated('MockBleService is always mock mode')
+  bool isMockMode = true;
 
-    // TODO (Member 5): Production characteristic write
-    return false;
-  }
+  /// Legacy connected device ID accessor.
+  /// TODO: remove once screens migrate to new API
+  @Deprecated('Use connectedUnit or connectedStationMac instead')
+  String? get connectedDeviceId => _connectedUnit?.unitId;
 
-  /// Disconnects from the current BLE device
-  Future<void> disconnect() async {
-    _connectedDeviceId = null;
-  }
+  /// Legacy connection status accessor.
+  /// TODO: remove once screens migrate to new API
+  @Deprecated('Use connectedUnit != null instead')
+  bool get isConnected => _connectedUnit != null;
 }
